@@ -289,11 +289,43 @@ app.post('/api/hname', async (req, res) => {
     } catch (error) {
         res.status(500).json({message: error});
     }
-})
+});
+
+
+app.post('/api/transfers', async (req, res) => {
+    const { IBAN } = req.body;
+    try {
+        
+        const query = `
+            SELECT transaction_id, IBAN_sender, IBAN_receiver currency, receiver, amount, Description, Date
+            FROM user_transfers 
+            WHERE IBAN_sender = ? OR IBAN_receiver = ? ORDER BY Date DESC;
+        `;
+
+        connection.execute(query, [IBAN, IBAN], (err, results) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+
+            // Log the results to check data structure and values
+            console.log("Database results:", results);
+
+            if (results.length === 0) {
+                return res.status(401).json({ message: "Δεν βρέθηκαν μεταφορές χρημάτων." });
+            }
+            res.status(200).json(results);
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
 app.post('/api/transfer', async (req, res) => {
     const { IBAN, IBAN2, amount, desc } = req.body;
     try {
-        const query = `SELECT username, name , surname FROM users WHERE IBAN = ?`
+        if (IBAN === IBAN2) {
+            res.status(401).json({ message: "Δεν μπορειτε να μεταφέρεται χρήματα στον ίδιο λογαριασμό" });
+        } else {
+            const query = `SELECT username, name , surname FROM users WHERE IBAN = ?`
         connection.execute(query, [IBAN2], (err, results) => {
             if (err) {
                 res.status(500).json({ message: err });
@@ -301,7 +333,7 @@ app.post('/api/transfer', async (req, res) => {
 
             if (results.length > 0) {
                 const receiver = results[0];
-                const query2 = `SELECT username, currency, balance FROM users WHERE IBAN = ?`
+                const query2 = `SELECT username, name, surname, currency, balance FROM users WHERE IBAN = ?`
                 connection.execute(query2, [IBAN], (err, results) => {
                     if (err) {
                         res.status(500).json({ message: err });
@@ -320,7 +352,10 @@ app.post('/api/transfer', async (req, res) => {
                             }
                             if (updateResults.affectedRows > 0) {
                                 res.status(200).json({ message: `Όνομα: ${receiver.name} Επώνυμο: ${receiver.surname} `});
-                                insertTransaction(sender.username, IBAN, receiver.username, IBAN2, amount, sender.currency, desc);
+                                let  sendername = sender.name + ' ' + sender.surname;
+                                let  receivername = receiver.name + ' ' + receiver.surname;
+
+                                insertTransaction(sendername, IBAN, receivername, IBAN2, amount, sender.currency, desc);
 
                             }
                         } )
@@ -333,6 +368,8 @@ app.post('/api/transfer', async (req, res) => {
                 res.status(401).json({ message: "Δεν Βρέθηκε κάτοχος λογαριασμού", IBAN2 });
             }
         })
+        }
+        
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

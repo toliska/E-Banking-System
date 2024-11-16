@@ -35,7 +35,7 @@ function NavigationMenu(props, test) {
                         className="text-blue-500 py-3  border-t- lg:border-t-0 lg:border-b-0 border-b block"
                         onClick={(props.closeMenu)}
                     >
-                    <FontAwesomeIcon icon={faUserGroup} /> Μεταφορές
+                    <FontAwesomeIcon icon={faUserGroup} /> Μεταφορά
                     </Link> 
                 </li>
                 <li>

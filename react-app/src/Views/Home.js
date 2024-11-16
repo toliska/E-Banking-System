@@ -49,7 +49,6 @@ function Home() {
     }, [userData]); // dependency on userData so fetches once userData is set
 
     if (loading) return <div>Loading...</div>;
-    if (error) return <div className="text-red-500">{error}</div>;
 
     return (
         <div>
