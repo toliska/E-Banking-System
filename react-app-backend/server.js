@@ -248,21 +248,20 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-app.post('/api/transactions', async (req, res) => {
-    const { username } = req.body;
+app.post('/api/transactionsall', async (req, res) => {
+    const { username, IBAN, views } = req.body;
     try {
         const query = `
-            SELECT transaction, currency, 
+            (SELECT transaction, sender, receiver, IBAN_sender, IBAN_receiver, currency, 
                    CAST(old_balance AS DECIMAL(10, 2)) as old_balance, 
                    CAST(amount AS DECIMAL(10, 2)) as amount, 
                    CAST(new_balance AS DECIMAL(10, 2)) as new_balance ,
-                   Date
+                   Description,Date, transaction_id
             FROM user_transactions 
-            WHERE username = ? ORDER BY Date DESC;
+            WHERE username = ? OR IBAN_receiver = ? OR IBAN_sender = ? ORDER BY Date DESC LIMIT ?) ORDER BY Date DESC;
         `;
 
-        connection.execute(query, [username], (err, results) => {
+        connection.execute(query, [username, IBAN, IBAN, views], (err, results) => {
             if (err) {
                 return res.status(500).json({ error: err.message });
             }
@@ -279,6 +278,7 @@ app.post('/api/transactions', async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
 app.post('/api/hname', async (req, res) => {
     const { IBAN2 } = req.body;
     let hname = " ";

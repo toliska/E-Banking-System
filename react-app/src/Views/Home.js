@@ -28,7 +28,7 @@ function Home() {
                 const response = await fetch('http://192.168.1.130:5000/api/hometransactions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: userData.username, IBAN: userData.IBAN }), // pass username correctly
+                    body: JSON.stringify({ username: userData.username, IBAN: userData.IBAN }), 
                 });
 
                 const data = await response.json();
