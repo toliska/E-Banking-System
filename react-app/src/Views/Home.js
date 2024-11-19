@@ -28,7 +28,7 @@ function Home() {
                 const response = await fetch('http://192.168.1.130:5000/api/hometransactions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: userData.username }), // pass username correctly
+                    body: JSON.stringify({ username: userData.username, IBAN: userData.IBAN }), // pass username correctly
                 });
 
                 const data = await response.json();
@@ -75,14 +75,14 @@ function Home() {
                                         return (
                                             <div key={index} className="flex justify-between p-3 bg-white rounded-md shadow-md">
                                                 <div>
-                                                    <p className="font-medium text-gray-700">{transaction.transaction}</p>
+                                                    <p className="font-medium uppercase text-gray-700">{transaction.transaction} {transaction.IBAN_receiver === userData.IBAN ? `Απo ${transaction.sender}` : `Πρoς ${transaction.receiver}` }</p>
                                                     <p className="text-xs text-gray-500">{formatedDate}</p>
                                                 </div>
                                                 <div>
-                                                    <p className={`font-semibold ${transaction.amount > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                        {transaction.amount} {transaction.currency}
+                                                    <p className={`font-semibold text-xl ${transaction.IBAN_receiver === userData.IBAN ? 'text-green-500' : 'text-red-500'}`}>
+                                                        {transaction.IBAN_receiver === userData.IBAN ? '+' : '-'} {transaction.amount} {transaction.currency}
                                                     </p>
-                                                    <p className="text-xs text-gray-500">Balance: {transaction.new_balance}</p>
+                                                    <p className="text-xs text-gray-500">Id: {transaction.transaction_id}</p>
                                                 </div>
                                             </div>
                                         );

@@ -410,19 +410,19 @@ app.post('/api/transfer', async (req, res) => {
 });
 
 app.post('/api/hometransactions', async (req, res) => {
-    const { username } = req.body;
+    const { username, IBAN } = req.body;
     try {
         const query = `
-            (SELECT transaction, currency, 
+            (SELECT transaction, sender, receiver, IBAN_sender IBAN_receiver, currency, 
                    CAST(old_balance AS DECIMAL(10, 2)) as old_balance, 
                    CAST(amount AS DECIMAL(10, 2)) as amount, 
                    CAST(new_balance AS DECIMAL(10, 2)) as new_balance ,
-                   Date
+                   Description,Date, transaction_id
             FROM user_transactions 
-            WHERE username = ? ORDER BY Date DESC LIMIT 5) ORDER BY Date DESC;
+            WHERE username = ? OR IBAN_receiver = ? OR IBAN_sender = ? ORDER BY Date DESC LIMIT 5) ORDER BY Date DESC;
         `;
 
-        connection.execute(query, [username], (err, results) => {
+        connection.execute(query, [username, IBAN, IBAN], (err, results) => {
             if (err) {
                 return res.status(500).json({ error: err.message });
             }
