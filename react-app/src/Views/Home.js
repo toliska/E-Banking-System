@@ -181,7 +181,7 @@ function Home() {
                                                 </div>
                                             </div>
                                         );
-                                    })}
+                                    }).slice(0, 5)}
                                 </div>
                             ) : (
                                 <p className="text-gray-500 text-sm">Δεν υπάρχουν συναλλαγές.</p>
