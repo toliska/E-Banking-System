@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { jwtDecode } from "jwt-decode"; // Ensure jwtDecode is properly imported
+import { jwtDecode } from "jwt-decode"; 
 import Header from "./Header";
 
 function Transactions() {
@@ -8,8 +8,9 @@ function Transactions() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [views, setViews] = useState(15);
+  const [type, setType] = useState("ANY");
 
-  // Decode the token and set user data
+
   useEffect(() => {
     const token = sessionStorage.getItem("token");
     if (token) {
@@ -22,23 +23,23 @@ function Transactions() {
     }
   }, []);
 
-  // Fetch transactions whenever userData or views change
   useEffect(() => {
     if (!userData) return;
 
     const fetchTransactions = async () => {
       setLoading(true);
+      setError(null); 
       try {
         const response = await fetch("http://192.168.1.130:5000/api/transactionsall", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: userData.username, IBAN: userData.IBAN, views }),
+          body: JSON.stringify({ username: userData.username, IBAN: userData.IBAN, views, type }),
         });
 
         const data = await response.json();
 
         if (response.ok) {
-          setTransactions(data);
+          setTransactions(data); 
         } else {
           setError(data.message || "Error fetching transactions");
         }
@@ -50,12 +51,15 @@ function Transactions() {
     };
 
     fetchTransactions();
-  }, [userData, views]);
+  }, [userData, views, type]);
 
-  // Handle dropdown change
-  const handleViewsChange = async (e) => {
-    const selectedValue = e.target.value;
-    setViews(selectedValue);
+  // Handle dropdown changes
+  const handleViewsChange = (e) => {
+    setViews(parseInt(e.target.value, 10));
+  };
+
+  const handleTypeChange = (e) => {
+    setType(e.target.value);
   };
 
   // Loading and error states
@@ -64,29 +68,48 @@ function Transactions() {
   }
 
   if (error) {
-    return <div className="text-center text-red-500 mt-6">{error}</div>;
+    return <div className="text-center text-red-500 mt-6">Error: {error}</div>;
   }
 
-  // Main UI
+  const noTransactionsMessage = `No ${type === "ANY" ? "" : type.toLowerCase()} transactions found in the recent ${views} records.`;
   return (
     <div>
       <Header />
       <div className="min-h-screen bg-gray-100 p-4 flex flex-col items-center">
         <h1 className="text-2xl font-semibold text-gray-800 mb-4">Transaction History</h1>
-        <div className="mb-4">
-          <label htmlFor="views" className="text-gray-800 font-medium mr-2">
-            Records Per Page:
-          </label>
-          <select
-            id="views"
-            value={views}
-            onChange={handleViewsChange}
-            className="border-b-2 bg-white border-gray-300 rounded-md py-2 px-4 text-gray-700 focus:outline-none focus:border-blue-500 transition-colors"
-          >
-            <option value="15">15</option>
-            <option value="30">30</option>
-            <option value="100">100</option>
-          </select>
+        <div className="flex flex-col">
+          <div className="mb-4 flex flex-col">
+            <label htmlFor="views" className="text-gray-800 font-medium mr-2">
+              Records Per Page:
+            </label>
+            <select
+              id="views"
+              value={views}
+              onChange={handleViewsChange}
+              className="border-b-2 bg-white border-gray-300 rounded-md py-2 px-4 text-gray-700 focus:outline-none focus:border-blue-500 transition-colors"
+            >
+              <option value="15">15</option>
+              <option value="30">30</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div className="mb-4 flex flex-col space-y-3">
+            <label htmlFor="type" className="text-gray-800 font-medium mr-2">
+              Transaction Type:
+            </label>
+            <select
+              id="type"
+              value={type}
+              onChange={handleTypeChange}
+              className="border-b-2 bg-white border-gray-300 rounded-md py-2 px-4 text-gray-700 focus:outline-none focus:border-blue-500 transition-colors"
+            >
+              <option value="ANY">All</option>
+              <option value="transfer">Transfers</option>
+              <option value="Deposit">Deposits</option>
+              <option value="Withdrawl">Withdrawals</option>
+              <option value="Purchase">Purchases</option>
+            </select>
+          </div>
         </div>
         {transactions.length > 0 ? (
           <div className="space-y-4 rounded bg-gray-600 p-1 max-w-3xl w-full">
@@ -95,7 +118,7 @@ function Transactions() {
             ))}
           </div>
         ) : (
-          <p className="text-center text-gray-500">No transactions available.</p>
+          <p className="text-center text-gray-500">{noTransactionsMessage}</p>
         )}
       </div>
     </div>

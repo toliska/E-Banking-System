@@ -33,7 +33,6 @@ function Transfers() {
   }, []);
 
   useEffect(() => {
-    // Initialize socket connection
     const socket = io("http://192.168.1.130:5000");
 
     socket.on("new_transaction", (transaction) => {
@@ -45,9 +44,9 @@ function Transfers() {
           closeOnClick: true,
           pauseOnHover: true
         });
+      }
       setTransfers((prevTransfers) => [transaction, ...prevTransfers]);
         
-      }
     });
 
     socket.on("connect_error", (error) => {

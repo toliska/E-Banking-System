@@ -17,15 +17,21 @@ const io = socketIo(server, {
       methods: ["GET", "POST"],
     },
 });
-function broadcast(transaction) {
-    io.emit("new_transaction", transaction);
-}
-  
+const userSocketMap = {};
 io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
-
+    socket.on("register", (username) => {
+      userSocketMap[username] = socket.id;
+      console.log(`${username} registered with socket ID: ${socket.id}`);
+    });
     socket.on("disconnect", () => {
-        console.log("A user disconnected:", socket.id);
+      for (const [username, id] of Object.entries(userSocketMap)) {
+        if (id === socket.id) {
+          delete userSocketMap[username];
+          console.log(`${username} disconnected.`);
+          break;
+        }
+      }
     });
 });
 
@@ -120,10 +126,7 @@ async function insertTransaction(sender, IBAN_Sender, receiver, IBAN_Receiver, a
     ];
 
     try {
-        // Execute the query and store the result in a variable without destructuring
         const result = await connection.execute(query, parameters);
-
-        // console.log("Transaction inserted successfully:", result); // Log the entire result to verify structure
         return result;
     } catch (error) {
         console.error("Error creating transaction:", error.stack);
@@ -156,6 +159,25 @@ async function generateRandomIban() {
         });
     });
 }
+
+app.post('/api/fetchbalance', async (req, res) => {
+    const { username } = req.body;
+    try{
+        connection.execute('SELECT balance FROM users WHERE username = ?', [username], (err, result) => {
+            if (err) {
+                res.status(501).json({ message: err });
+                console.log(err);
+            }
+            const bal = result[0]
+            res.status(200).json(bal);
+            console.log(bal);
+            console.log(typeof bal);
+        })
+    } catch (error) {
+        res.status(501).json({ message: error });
+        console.log(error);
+    }
+});
 
 app.post('/api/register', async (req, res) => {
     const {name, surname, username, email, password, phone, age, afm, currency} = req.body;
@@ -227,7 +249,6 @@ app.post('/api/login', async (req, res) => {
             const userPayload = { 
                 username: user.username,
                 name: user.name, 
-                balance: user.balance, 
                 currency: user.currency,
                 IBAN: user.IBAN
             };
@@ -238,7 +259,6 @@ app.post('/api/login', async (req, res) => {
                 user: {
                     username: user.username,
                     name: user.name,
-                    balance: user.balance,
                     currency: user.currency,
                     IBAN : user.IBAN
                 }
@@ -249,31 +269,37 @@ app.post('/api/login', async (req, res) => {
     }
 });
 app.post('/api/transactionsall', async (req, res) => {
-    const { username, IBAN, views } = req.body;
+    const { username, IBAN, views, type } = req.body;
     try {
-        const query = `
-            (SELECT transaction, sender, receiver, IBAN_sender, IBAN_receiver, currency, 
-                   CAST(old_balance AS DECIMAL(10, 2)) as old_balance, 
-                   CAST(amount AS DECIMAL(10, 2)) as amount, 
-                   CAST(new_balance AS DECIMAL(10, 2)) as new_balance ,
-                   Description,Date, transaction_id
-            FROM user_transactions 
-            WHERE username = ? OR IBAN_receiver = ? OR IBAN_sender = ? ORDER BY Date DESC LIMIT ?) ORDER BY Date DESC;
-        `;
-
-        connection.execute(query, [username, IBAN, IBAN, views], (err, results) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
-
-            // Log the results to check data structure and values
-            // console.log("Database results:", results);
-
-            if (results.length === 0) {
-                return res.status(401).json({ message: "No Transactions have been found" });
-            }
-            res.status(200).json(results);
-        });
+        if (type === "ANY"){
+            const query = `SELECT * FROM  user_transactions WHERE (transaction = ANY (SELECT transaction FROM user_transactions)) AND (username =? OR IBAN_sender = ? OR IBAN_receiver = ?) ORDER BY Date DESC LIMIT ?`;
+            connection.execute(query, [username, IBAN, IBAN, views], (err, results) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+                if (results.length === 0) {
+                    return res.status(401).json({ message: "No Transactions have been found" });
+                }
+                res.status(200).json(results);
+            });
+        } else {
+            const query = `
+                (SELECT *
+                FROM user_transactions 
+                WHERE (username = ? OR IBAN_receiver = ? OR IBAN_sender = ?) AND transaction = ? ORDER BY Date DESC LIMIT ?) ORDER BY Date DESC;
+            `;
+            connection.execute(query, [username, IBAN, IBAN, type, views], (err, results) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+                if (results.length === 0) {
+                    return res.status(200).json({ message: "No Transactions have been found" });
+                }
+                res.status(200).json(results);
+            });
+        }
+        
+        
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -327,9 +353,6 @@ app.post('/api/transfers', async (req, res) => {
                 return res.status(500).json({ error: err.message });
             }
 
-            // Log the results to check data structure and values
-            // console.log("Database results:", results);
-
             if (results.length === 0) {
                 return res.status(401).json({ message: "Δεν βρέθηκαν μεταφορές χρημάτων." });
             }
@@ -361,12 +384,16 @@ app.post('/api/transfer', async (req, res) => {
                 if (!sender || sender.balance < amount) {
                     return res.status(400).json({ message: "Insufficient balance" });
                 }
-                connection.execute(`UPDATE users SET balance = balance - ? WHERE IBAN = ?`, [amount, IBAN], (err) => {
+                connection.execute(`UPDATE users SET balance = balance - ? WHERE IBAN = ?`, [amount, IBAN], (err, resultstest) => {
                     if (err) return res.status(500).json({ message: err.message });
-
+                    
+                    if (resultstest.length > 0) {
+                        console.log("correct");
+                    }
                     connection.execute(`UPDATE users SET balance = balance + ? WHERE IBAN = ?`, [amount, IBAN2], (err) => {
                         if (err) return res.status(500).json({ message: err.message });
                         const transaction =  {
+                            transaction: 'transfer',
                             sender: `${sender.name} ${sender.surname}`,
                             receiver: `${receiver.name} ${receiver.surname}`,
                             IBAN_sender: IBAN,
@@ -377,7 +404,6 @@ app.post('/api/transfer', async (req, res) => {
                             Date: new Date(),
                             transaction_id
                         };
-                        // console.log("Inserting transaction:", transaction);
                         connection.execute(
                             `INSERT INTO user_transactions (sender, receiver, IBAN_sender, IBAN_receiver, transaction, currency, amount, Description, Date, transaction_id) 
                              VALUES (?, ?, ?, ?, 'transfer', ?, ?, ?, ?, ?)`,
@@ -394,7 +420,6 @@ app.post('/api/transfer', async (req, res) => {
                             ],
                             (err) => {
                                 if (err) return res.status(500).json({ message: err.message });
-                                // broadcast(transaction);
                                 console.log("Broadcasting transaction:", transaction);
                                 io.emit("new_transaction", transaction);
                                 res.status(200).json({ message: "Transfer successful", transaction });
@@ -404,6 +429,20 @@ app.post('/api/transfer', async (req, res) => {
                 });
             });
         });
+        const queryB = `SELECT balance FROM users WHERE IBAN = ?`;
+        connection.execute(queryB, [IBAN2], (err, results) => {
+            if (err) {
+                console.log("error");
+            }
+            const bal = results[0];
+            const targetScoketId = userSocketMap[IBAN2];
+            if (targetScoketId) {
+                io.to(targetScoketId).emit("updateValue", bal);
+                console.log("correct");
+            }
+            console.log("wrong");
+        })
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -412,23 +451,13 @@ app.post('/api/transfer', async (req, res) => {
 app.post('/api/hometransactions', async (req, res) => {
     const { username, IBAN } = req.body;
     try {
-        const query = `
-            (SELECT transaction, sender, receiver, IBAN_sender IBAN_receiver, currency, 
-                   CAST(old_balance AS DECIMAL(10, 2)) as old_balance, 
-                   CAST(amount AS DECIMAL(10, 2)) as amount, 
-                   CAST(new_balance AS DECIMAL(10, 2)) as new_balance ,
-                   Description,Date, transaction_id
-            FROM user_transactions 
-            WHERE username = ? OR IBAN_receiver = ? OR IBAN_sender = ? ORDER BY Date DESC LIMIT 5) ORDER BY Date DESC;
+        const query = `SELECT * FROM user_transactions WHERE username = ? OR IBAN_sender = ? OR IBAN_receiver = ?  ORDER BY Date DESC LIMIT 5;
         `;
 
         connection.execute(query, [username, IBAN, IBAN], (err, results) => {
             if (err) {
                 return res.status(500).json({ error: err.message });
             }
-
-            // Log the results to check data structure and values
-            // console.log("Database results:", results);
 
             if (results.length === 0) {
                 return res.status(401).json({ message: "No Transactions have been found" });
