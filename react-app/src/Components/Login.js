@@ -78,9 +78,15 @@ function Login() {
                         </button>
                         {message && <p className={`mt-2 ${isLoggedIn ? 'text-green-500' : 'text-red-500'}`}>{message}</p>}
                         <p className="text-sm text-dark-slate-gray">
-                            Do not have an account?{' '}
+                            Δεν έχεις λογαριασμό?{' '}
                             <a href="/register" className="text-coral hover:underline">
-                            Create one
+                            Δημιουργία λογ.
+                            </a>
+                        </p>
+                        <p className="text-sm text-dark-slate-gray">
+                           Ξεχάσατε τον κωδικό πρόσβασης?{' '}
+                            <a href="/resetpassword" className="text-coral hover:underline">
+                            Ανάκτηση
                             </a>
                         </p>
                     </div>
@@ -90,7 +96,6 @@ function Login() {
     );
 }
 
-// InputField Component remains unchanged
 function InputField({ label, id, type, value, onChange, placeholder }) {
     return (
         <div className="flex flex-col">

@@ -58,7 +58,13 @@ function NavigationMenu(props, test) {
                 </li>
                 <div className='lg:pl-5 flex space-x-4 py-3 justify-end'>
                 <li className='text-gray-600'>
+                    <Link
+                        to="/settings"
+                        onClick={(props.closeMenu)}
+                    >    
                     <FontAwesomeIcon icon={faGear}/>
+                    </Link>
+
                 </li>
                 <li>
                     <button className='text-red-600' onClick={() => setIsLoggedOut(true)}><FontAwesomeIcon icon={faArrowRightFromBracket}/></button>

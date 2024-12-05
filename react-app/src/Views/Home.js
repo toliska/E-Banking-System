@@ -85,6 +85,34 @@ function Home() {
         fetchbalance();
     }, [userData]);
 
+    useEffect(() => {
+        if (!userData) return;
+        const emailTest = async () => {
+            try {
+                const response = await fetch("http://192.168.1.130:5000/api/verification-email", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: userData.username }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    console.log("Email sent successfully:", data);
+                    setError(null); 
+                } else {
+                    console.error("Error from server:", data);
+                    setError(data.error || "Something went wrong");
+                }
+            } catch (err) {
+                console.error("Error during fetch:", err);
+                setError(err.message || "Failed to send email");
+            }
+        };
+
+        emailTest();
+    }, [userData]);
+
     
 
     useEffect(() => {

@@ -3,17 +3,19 @@ import Footer from './Components/Footer';
 import Home from './Views/Home';
 import About from './Views/About';
 import Register from './Components/Register';
+import EmailVerification from './Components/EmailVerification';
 import Login from './Components/Login';
 import PrivateRoute from './Components/PrivateRoute';
 import Transactions from './Components/Transactions';
 import Transfers from './Components/Transfers';
+import Settings from './Components/Settings';
+import Resetpassword from './Components/Resetpassword';
 import { jwtDecode } from 'jwt-decode';
 import { useEffect, useState } from 'react';
 import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Link
 } from "react-router-dom";
 function App() {
   const [userData, setUserData] = useState(null);
@@ -38,9 +40,11 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        <Route path='/resetpassword' element={<Resetpassword />} />
         
         <Route element={<PrivateRoute />}>
             <Route path="/home" element={<Home />} />
+            <Route path='/settings' element={<Settings />} />
             
             {/* Conditionally render the Transactions route based on userData */}
             {userData && (
@@ -48,7 +52,7 @@ function App() {
             )}
         </Route>
 
-        <Route path="/about" element={<About />} />
+        <Route path="/EmailVerification" element={<EmailVerification />} />
     </Routes>
     <Footer />
 </Router>

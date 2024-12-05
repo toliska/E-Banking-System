@@ -36,6 +36,12 @@ function Register() {
         body: JSON.stringify({ name, surname, username, email, password, phone, age, afm, currency }),
       });
 
+      const email = await fetch("http://192.168.1.130:5000/api/verification-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
+
       const data = await response.json();
       
       if (response.ok) {

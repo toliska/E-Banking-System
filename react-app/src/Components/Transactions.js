@@ -71,16 +71,16 @@ function Transactions() {
     return <div className="text-center text-red-500 mt-6">Error: {error}</div>;
   }
 
-  const noTransactionsMessage = `No ${type === "ANY" ? "" : type.toLowerCase()} transactions found in the recent ${views} records.`;
+  const noTransactionsMessage = `Δεν ${type === "ANY" ? "" : type.toLowerCase()} βρέθηκε μεταφορά στις τελευταίες  ${views} συναλλαγές.`;
   return (
     <div>
       <Header />
       <div className="min-h-screen bg-gray-100 p-4 flex flex-col items-center">
-        <h1 className="text-2xl font-semibold text-gray-800 mb-4">Transaction History</h1>
+        <h1 className="text-2xl font-semibold text-gray-800 mb-4">Ιστορικό συναλλαγών</h1>
         <div className="flex flex-col">
           <div className="mb-4 flex flex-col">
             <label htmlFor="views" className="text-gray-800 font-medium mr-2">
-              Records Per Page:
+              Τελευταίες συν/γες:
             </label>
             <select
               id="views"
@@ -95,7 +95,7 @@ function Transactions() {
           </div>
           <div className="mb-4 flex flex-col space-y-3">
             <label htmlFor="type" className="text-gray-800 font-medium mr-2">
-              Transaction Type:
+              Είδος συν/γης:
             </label>
             <select
               id="type"
@@ -103,11 +103,11 @@ function Transactions() {
               onChange={handleTypeChange}
               className="border-b-2 bg-white border-gray-300 rounded-md py-2 px-4 text-gray-700 focus:outline-none focus:border-blue-500 transition-colors"
             >
-              <option value="ANY">All</option>
-              <option value="transfer">Transfers</option>
-              <option value="Deposit">Deposits</option>
-              <option value="Withdrawl">Withdrawals</option>
-              <option value="Purchase">Purchases</option>
+              <option value="ANY">Ολά</option>
+              <option value="transfer">Μεταφορές</option>
+              <option value="Deposit">Καταθέσεις</option>
+              <option value="Withdrawl">Αναλήψεις</option>
+              <option value="Purchase">Αγορές</option>
             </select>
           </div>
         </div>
@@ -181,31 +181,31 @@ function TransactionCard({ transaction, IBAN }) {
         <div className="mt-4 border-t pt-4 text-sm text-gray-700 space-y-2">
           {sender && (
             <p>
-              <strong>Sender Name:</strong> {sender}
+              <strong>Επωνυμία αποστολέα:</strong> {sender}
             </p>
           )}
           {IBAN_sender && (
             <p>
-              <strong>Sender IBAN:</strong> {IBAN_sender}
+              <strong>IBAN αποστολέα:</strong> {IBAN_sender}
             </p>
           )}
           {receiver && (
             <p>
-              <strong>Receiver Name:</strong> {receiver}
+              <strong>Επωνυμία παραλήπτη:</strong> {receiver}
             </p>
           )}
           {IBAN_receiver && (
             <p>
-              <strong>Receiver IBAN:</strong> {IBAN_receiver}
+              <strong>IBAN παραλήπτη:</strong> {IBAN_receiver}
             </p>
           )}
           {Description && (
             <p>
-              <strong>Description:</strong> {Description}
+              <strong>Αιτιολογία:</strong> {Description}
             </p>
           )}
           <p>
-            <strong>Transaction ID:</strong> {transaction_id}
+            <strong>ID συναλλαγής:</strong> {transaction_id}
           </p>
         </div>
       )}

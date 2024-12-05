@@ -2,19 +2,31 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const express = require('express');
 const http = require("http");
-const jwt = require('jsonwebtoken'); // JWT for token-based authentication
+const jwt = require('jsonwebtoken'); 
 const bcrypt = require('bcrypt'); 
 const app = express();
 const socketIo = require("socket.io");
+const nodemailer = require('nodemailer');
+const bodyParser = require('body-parser');
+const e = require('cors');
 require('dotenv').config();
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 let connection;
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-      origin: "http://192.168.1.130:3000", // Allow frontend origin
+      origin: "http://192.168.1.130:3000", 
       methods: ["GET", "POST"],
+    },
+});
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST, 
+    port: process.env.SMTP_PORT, 
+    secure: true, // true for port 465, false for port 587
+    auth: {
+        user: process.env.GMAIL_USER, 
+        pass: process.env.GMAIL_PASS, 
     },
 });
 const userSocketMap = {};
@@ -66,7 +78,7 @@ function connectToDB() {
 connectToDB();
 app.use(cors());
 app.use(express.json());
-
+app.use(bodyParser.json());
 app.get('/api/username', (req, res) => {
     connection.execute('SELECT username FROM users WHERE age = 18', (err, results) => {
         if (err) {
@@ -75,6 +87,7 @@ app.get('/api/username', (req, res) => {
         res.json(results);
     });
 });
+
 
 function generateRandomId(){
     return new Promise((resolve, reject) => {
@@ -102,6 +115,41 @@ function generateRandomId(){
         checkId(); 
     });
 }
+async function generateVerificationCode(username) {
+    return new Promise((resolve, reject) => {
+        let code = '';
+        const characters = '0123456789';
+        for (let i = 0; i < 6; i++) {
+            code += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+
+        const query = `SELECT code FROM user_verification WHERE username = ?`;
+        connection.execute(query, [username], (err, results) => {
+            if (err) {
+                return reject(err);
+            }
+
+            if (results.length === 0) {
+                const queryInsert = `INSERT INTO user_verification (username, code) VALUES (?, ?)`;
+                connection.execute(queryInsert, [username, code], (err) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve(code); 
+                });
+            } else {
+                const queryUpdate = `UPDATE user_verification SET code = ? WHERE username = ?`;
+                connection.execute(queryUpdate, [code, username], (err) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve(code); 
+                });
+            }
+        });
+    });
+}
+
 
 async function insertTransaction(sender, IBAN_Sender, receiver, IBAN_Receiver, amount, currency, Description) {
     const query = `INSERT INTO user_transactions (transaction, sender, receiver, IBAN_sender, IBAN_receiver, amount, currency, Description, Date, transaction_id) 
@@ -178,6 +226,42 @@ app.post('/api/fetchbalance', async (req, res) => {
         console.log(error);
     }
 });
+app.post('/api/verify-email', (req, res) => {
+    console.log("1");
+    const { username, fullCode } = req.body;
+
+    const query = 'SELECT code FROM user_verification WHERE username = ?';
+    connection.execute(query, [username], (err, results) => {
+        if (err) {
+            console.log("2");
+            return res.status(500).json({ message: err.message });
+        }
+
+        if (results.length === 0) {
+            console.log("3");
+            return res.status(400).json({ message: 'Δοκιμάστε ξανά' });
+        }
+
+        if (results[0].code == fullCode) {
+
+            const updateQuery = 'UPDATE users SET verified = 1 WHERE username = ?';
+            connection.execute(updateQuery, [username], (err, updateResults) => {
+                if (err) {
+                    console.log("5");
+                    return res.status(500).json({ message: err.message });
+                }
+
+    
+                return res.status(200).json({ message: 'Επαλήθευση email με επιτυχία!' });
+            });
+        } else {
+            console.log(fullCode);
+            return res.status(200).json({ message: 'Λάθος κδωδικος' });
+        }
+    });
+});
+
+
 
 app.post('/api/register', async (req, res) => {
     const {name, surname, username, email, password, phone, age, afm, currency} = req.body;
@@ -209,9 +293,9 @@ app.post('/api/register', async (req, res) => {
         }
         
         const hashedPassword = await bcrypt.hash(password, 10);
-        const IBAN = await generateRandomIban(); // Await the IBAN generation
-        const query = `INSERT INTO users (username, password, name, surname, email, phone, age, afm, currency, IBAN) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        connection.execute(query, [username, hashedPassword, name, surname, email, phone, age, afm, currency, IBAN], (err, results) => {
+        const IBAN = await generateRandomIban(); 
+        const query = `INSERT INTO users (username, password, name, surname, email, phone, age, afm, currency, IBAN, verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        connection.execute(query, [username, hashedPassword, name, surname, email, phone, age, afm, currency, IBAN, '0'], (err, results) => {
             if (err) {
                 console.log(`error ${err.message}`);
                 return res.status(500).json({ message: err.message });
@@ -221,6 +305,8 @@ app.post('/api/register', async (req, res) => {
             res.status(201).json({ message: 'User registered successfully' });
             console.log(`Succesfully Registered user ${username}`);
         });
+        const tokenquery = `INSERT INTO user_pages (username, token) VALUES (?, ?)`;
+        connection.execute(tokenquery, [username, '0']);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -228,7 +314,7 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
     const {username, password} = req.body;
-    const JWT_SECRET = process.env.JWT_SECRET || "oqVlgb^%GK|Ucs$NuuW68S#K/Wpl<8";
+    const JWT_SECRET = process.env.JWT_SECRET || "";
     if (!username || !password) {
         return res.status(400).json({ message: "Username and password are required" });
     }
@@ -304,6 +390,102 @@ app.post('/api/transactionsall', async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+function generateRandomToken() {
+    let count = 0;
+    let result = '';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()?';
+    const charslength = chars.length;
+    while (count < 32) {
+        result += chars.charAt(Math.floor(Math.random() * charslength));
+        count += 1
+    }
+    return result;
+}
+app.post('/api/request-recovery', async (req, res) => {
+    const { username } = req.body;
+    try {
+        const query = `SELECT token FROM user_pages WHERE username = ?`;
+        connection.execute(query, [username], async (err, results) => {
+            if (err) {
+                return res.status(500).json({ message: err.message });
+            }
+            if (results.length === 0) {
+                return res.status(200).json({message: "Σε περίπτωση που υπάρχει λογαριασμός συνδεμένος με το username θα σταλθεί email με οδηγίες."});
+            }
+    
+            if (results[0].token != 0 ){
+                res.status(200).json({message: "Έχει ήδη σταλθεί σύνδεσμος ανάκτησης λογαριασμού."});
+            } else{
+                res.status(200).json({message: "Σε περίπτωση που υπάρχει λογαριασμός συνδεμένος με το username θα σταλθεί email με οδηγίες."});
+                const token = generateRandomToken();
+                const querytoken = `INSERT INTO user_pages (username, token, expire_at, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)`;
+                const date = new Date();
+                const expirationDate = new Date(date.getTime() + 60 * 60 * 1000);
+                console.log("1");
+                connection.execute(querytoken, [username, token, expirationDate.toISOString()], (err, results2) => {
+                    console.log("2");
+                    if (err) {
+                        console.log("error" + err);
+                    }
+                    if (results2.affectedRows > 0) {
+                        console.log("correct.");                      
+                    }
+                })
+            
+            }
+        });
+        
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/request-passreset', async (req, res) => {
+    console.log("1");
+    const { token, password, password2 } = req.body;
+    try {
+        console.log("2");
+        const query = `SELECT * FROM user_pages WHERE token = ?`;
+        connection.execute(query, [token], (err, results) => {
+            console.log("3");
+            if (err) {
+                console.log(err);
+            }
+            if (results.length > 0) {
+                console.log("correct");
+            }
+        })
+    } catch (error) {
+        console.log(error);
+    }
+});
+
+
+app.post('/api/verification-email', async (req, res) => {
+     const { username } = req.body;
+    try {
+        const query = `SELECT email FROM users WHERE username = ? `;
+        const verificationcode = await generateVerificationCode(username);
+        connection.execute(query, [username], async (err, results) => {
+            if (err) {
+                res.status(500).send({ error: 'Failed to send email' });
+            }
+            const mailoptions = {
+                from: process.env.GMAIL_USER,
+                to: results[0].email,
+                subject: 'Account verification',
+                text: 'Your verification code is: ' + verificationcode + 'Please visit this link http://192.168.1.130:3000/EmailVerification to verify email',
+            };
+            const info = await transporter.sendMail(mailoptions);
+            console.log("Email sent: " + info.response);
+            res.status(200).send({ message: 'Email sent successfully!' });
+        })
+
+    } catch (error) {
+        console.error('Error sending email:', error);
+        res.status(500).send({ error: 'Failed to send email' });
+    }
+})
 
 app.post('/api/hname', async (req, res) => {
     const { IBAN2 } = req.body;
@@ -470,7 +652,6 @@ app.post('/api/hometransactions', async (req, res) => {
 });
 
 
-// Start the server
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

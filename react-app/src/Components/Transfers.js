@@ -20,7 +20,7 @@ function Transfers() {
   });
 
   useEffect(() => {
-    // Decode token and set user data
+    
     const token = sessionStorage.getItem("token");
     if (token) {
       try {
@@ -75,7 +75,7 @@ function Transfers() {
         if (response.ok) setTransfers(data);
         else setState((prev) => ({ ...prev, error: data.message || "Error fetching transfers" }));
       } catch (err) {
-        setState((prev) => ({ ...prev, error: err.message }));
+        setState((prev) => ({ ...prev, error: err.message }));  
       } finally {
         setState((prev) => ({ ...prev, loading: false }));
       }
