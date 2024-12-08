@@ -202,7 +202,7 @@ async function generateRandomIban() {
             if (results.length === 0) {
                 resolve(IBAN);
             } else {
-                resolve(generateRandomIban()); // Recursively generate a new IBAN
+                resolve(generateRandomIban()); 
             }
         });
     });

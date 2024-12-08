@@ -37,7 +37,6 @@ function EmailVerification() {
     }
   };
 
-  // Handle backspace functionality
   const handleInputKeyDown = (e, index) => {
     if (e.key === 'Backspace' && code[index] === '') {
       if (index > 0) {
@@ -87,9 +86,12 @@ function EmailVerification() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: userData.username }),
-      });
-    setTimer(120);  // Reset timer to 2 minutes
-    setCanResend(false); // Disable button until timer expires
+    });
+    if (response.ok) {
+
+        setCanResend(false); // Disable button until timer expires
+        setTimer(120);  // Reset timer to 2 minutes
+    }
   };
 
   // Countdown for resend email button

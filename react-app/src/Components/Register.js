@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
 function Register() {
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [repeatPassword, setRepeatPassword] = useState('');
   const [name, setName] = useState('');
@@ -36,11 +36,14 @@ function Register() {
         body: JSON.stringify({ name, surname, username, email, password, phone, age, afm, currency }),
       });
 
-      const email = await fetch("http://192.168.1.130:5000/api/verification-email", {
+      const responce2 = await fetch("http://192.168.1.130:5000/api/verification-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username }),
       });
+      if (responce2.ok) {
+        setMessage("Έχει σταλθεί email.")
+      }
 
       const data = await response.json();
       

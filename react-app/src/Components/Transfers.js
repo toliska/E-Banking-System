@@ -57,7 +57,7 @@ function Transfers() {
       console.log("Socket disconnected:", reason);
     });
 
-    return () => socket.disconnect(); // Clean up on unmount
+    return () => socket.disconnect(); 
   }, [userData]);
 
   useEffect(() => {
@@ -115,7 +115,7 @@ function Transfers() {
     e.preventDefault();
     const loadingToast = toast.loading('Επεξεργασία μεταφοράς...', {
       position: "top-right",
-      autoClose: false, // Keep the toast until the transfer completes
+      autoClose: false, 
       closeOnClick: false,
     });
 

@@ -228,7 +228,8 @@ function Home() {
                     </div>
                 </div>
             ) : (
-                <h1> Please log in to see your information.</h1>
+                <h1> Please log in to see your information. {error} </h1> 
+                
             )}
         </div>
     );

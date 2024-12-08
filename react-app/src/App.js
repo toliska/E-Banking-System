@@ -1,7 +1,6 @@
 import './output.css';
 import Footer from './Components/Footer';
 import Home from './Views/Home';
-import About from './Views/About';
 import Register from './Components/Register';
 import EmailVerification from './Components/EmailVerification';
 import Login from './Components/Login';
@@ -10,6 +9,7 @@ import Transactions from './Components/Transactions';
 import Transfers from './Components/Transfers';
 import Settings from './Components/Settings';
 import Resetpassword from './Components/Resetpassword';
+import PreventExit from './Components/PreventExit';
 import { jwtDecode } from 'jwt-decode';
 import { useEffect, useState } from 'react';
 import {
@@ -36,6 +36,7 @@ function App() {
     
     <div>
       <Router>
+        <PreventExit />
     <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
