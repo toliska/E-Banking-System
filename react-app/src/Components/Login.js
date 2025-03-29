@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Navigate } from "react-router-dom";
-
+const config = require("../config");
+const API_URL = config.IP_BACKEND;
 function Login() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -22,7 +23,7 @@ function Login() {
         setMessage('');
 
         try {
-            const response = await fetch('http://192.168.1.130:5000/api/login', {
+            const response = await fetch(`${API_URL}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),

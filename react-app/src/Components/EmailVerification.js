@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import { Navigate } from "react-router-dom";
+const config = require("../config");
+const API_URL = config.IP_BACKEND;
 
 function EmailVerification() {
   const [code, setCode] = useState(['', '', '', '', '', '']); 
@@ -59,7 +62,7 @@ function EmailVerification() {
       }
 
       try {
-        const response = await fetch("http://192.168.1.130:5000/api/verify-email", {
+        const response = await fetch(`${API_URL}/api/verify-email`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: userData.username, fullCode }),
@@ -69,6 +72,7 @@ function EmailVerification() {
         if (response.ok) {
           setIsVerified(true);
           setMessage(data.message || 'Email verified successfully!');
+          return <Navigate to="/home" replace />;
         } else {
           setMessage(data.message || "Invalid code. Please try again.");
         }
@@ -82,7 +86,7 @@ function EmailVerification() {
 
   const handleResendEmail = async(e) => {
     setMessage('Verification email resent! Please check your inbox.');
-    const response = await fetch("http://192.168.1.130:5000/api/verification-email", {
+    const response = await fetch(`${API_URL}/api/verification-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: userData.username }),

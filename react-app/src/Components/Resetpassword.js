@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-
+const config = require("../config");
+const API_URL = config.IP_BACKEND;
 function Resetpassword() {
     const [username, setUsername] = useState('');
     const [message, setMessage] = useState('');
@@ -20,7 +21,7 @@ function Resetpassword() {
 
         setIsLoading(true);
         try {
-            const response = await fetch('http://192.168.1.130:5000/api/request-recovery', {
+            const response = await fetch(`${API_URL}/api/request-recovery`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username }),
@@ -50,13 +51,17 @@ function Resetpassword() {
             setMessage('Εισαγωγή σωστού κωδικού');
             return;
         }
+        if (password !== password2) {
+            setMessage('Οι κωδικοί δεν ταιριάζουν.');
+            return;
+        }
 
         setIsLoading(true);
         try {
-            const response = await fetch('http://192.168.1.130:5000/api/request-passreset', {
+            const response = await fetch(`${API_URL}/api/request-passreset`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, password, password2 }),
+                body: JSON.stringify({ token, password}),
             });
             const data = await response.json();
             if (response.ok) {
@@ -87,7 +92,7 @@ function Resetpassword() {
                         />
                         <button
                             type="submit"
-                            className={`py-2 px-8 font-semibold rounded ${isLoading ? 'bg-gray-400' : 'bg-coral text-white'}`}
+                            className={`py-2 mt-1 px-8 font-semibold rounded ${isLoading ? 'bg-gray-400' : 'bg-coral text-white'}`}
                             disabled={isLoading}
                         >
                             {isLoading ? 'Processing...' : 'Ανάκτηση'}
@@ -120,7 +125,7 @@ function Resetpassword() {
                         />
                         <button
                             type="submit"
-                            className={`py-2  px-8 font-semibold rounded ${isLoading ? 'bg-gray-400' : 'bg-coral text-white'}`}
+                            className={`py-2 px-8 font-semibold rounded ${isLoading ? 'bg-gray-400' : 'bg-coral text-white'}`}
                             disabled={isLoading}
                         >
                             {isLoading ? 'Επεξεργασία...' : 'Επαναφορά'}

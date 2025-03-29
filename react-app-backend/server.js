@@ -8,42 +8,70 @@ const app = express();
 const socketIo = require("socket.io");
 const nodemailer = require('nodemailer');
 const bodyParser = require('body-parser');
-const e = require('cors');
-require('dotenv').config();
-
-const PORT = process.env.PORT;
+const config = require("./config");
+const PORT = config.PORT;
 let connection;
+let connectedUsers = 0;
 const server = http.createServer(app);
+console.log(config.IP_BACKEND);
+app.use(cors({ 
+    origin: '*', 
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 const io = socketIo(server, {
     cors: {
-      origin: "http://192.168.1.130:3000", 
+      origin: "*", 
       methods: ["GET", "POST"],
     },
 });
+
+// app.use((req, res, next) => {
+//     console.log(`📥 Incoming Request: ${req.method} ${req.url}`);
+//     console.log("Headers:", req.headers);
+    
+//     let body = [];
+//     req.on('data', chunk => {
+//         body.push(chunk);
+//     }).on('end', () => {
+//         body = Buffer.concat(body).toString();
+//         console.log("Raw Body:", body);
+//         next();
+//     });
+// });
+
+
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST, 
-    port: process.env.SMTP_PORT, 
+    host: config.SMTP.HOST, 
+    port: config.SMTP.PORT, 
     secure: true, // true for port 465, false for port 587
     auth: {
-        user: process.env.GMAIL_USER, 
-        pass: process.env.GMAIL_PASS, 
+        user: config.SMTP.USER, 
+        pass: config.SMTP.PASS, 
     },
 });
 const userSocketMap = {};
 io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
+    connectedUsers += 1;
+    console.log("Current Connected Users:", connectedUsers);
+    // Register a user by username
     socket.on("register", (username) => {
-      userSocketMap[username] = socket.id;
-      console.log(`${username} registered with socket ID: ${socket.id}`);
+        userSocketMap[username] = socket.id;
+        console.log(`${username} registered with socket ID: ${socket.id}`);
     });
+
+    // Handle user disconnection
     socket.on("disconnect", () => {
-      for (const [username, id] of Object.entries(userSocketMap)) {
-        if (id === socket.id) {
-          delete userSocketMap[username];
-          console.log(`${username} disconnected.`);
-          break;
+        for (const [username, id] of Object.entries(userSocketMap)) {
+            if (id === socket.id) {
+                delete userSocketMap[username];
+                console.log(`${username} disconnected.`);
+                connectedUsers -= 1;
+                console.log("Current Connected Users:", connectedUsers);
+                break;
+            }
         }
-      }
     });
 });
 
@@ -51,10 +79,11 @@ io.on("connection", (socket) => {
 
 function connectToDB() {
     connection = mysql.createConnection({
-        host: 'localhost', 
-        user: 'root', 
-        password: '', 
-        database: 'atm' 
+        host: config.DB_HOST, 
+        user: config.DB_USER, 
+        password: config.DB_PASS, 
+        database: config.DB_DATABASE,
+        multipleStatements: true
     });
   
     connection.connect((err) => {
@@ -218,8 +247,107 @@ app.post('/api/fetchbalance', async (req, res) => {
             }
             const bal = result[0]
             res.status(200).json(bal);
-            console.log(bal);
-            console.log(typeof bal);
+        })
+    } catch (error) {
+        res.status(501).json({ message: error });
+        console.log(error);
+    }
+});
+app.post('/api/moneybox', async (req, res) => {
+    const { username } = req.body;
+    const query = `SELECT value, mlimit FROM user_moneybox WHERE username = ?`;
+    try{
+        connection.execute(query, [username], (err, result) => {
+            if (err) {
+                res.status(501).json({ message: err });
+                console.log(err);
+            }
+            if (result.length === 0 ) {
+                res.status(204).json({message: "No content"});
+            }else {
+
+                res.status(200).json({ amount: result[0].value, limit: result[0].mlimit });
+            }
+        })
+    } catch (error) {
+        res.status(501).json({ message: error });
+        console.log(error);
+    }
+});
+app.post('/api/withdrawmoneybox', async (req, res) => {
+    const { username, amount } = req.body;
+    const checkBalQuery = `SELECT value FROM user_moneybox WHERE username = ?`;
+    const updateQuery = `UPDATE user_moneybox SET value = value - ? WHERE username = ?`;
+    const updateQuery2 = `UPDATE users SET balance = balance + ? WHERE username = ?`;
+    try {
+        connection.execute(checkBalQuery, [username], (err, result) => {
+            if (err){
+                res.status(501).json({ message: err });
+                console.log(err);
+            }
+            if (result[0].value >= amount) {
+                try{
+                    connection.execute(updateQuery, [amount, username], (err1, result2) => {
+                        if (err) {
+                            res.status(501).json({ message: err1 });
+                            console.log(err1);
+                        }
+                        res.status(200).json({ message: "done"});
+                        connection.execute(updateQuery2, [amount, username], (err2) => {
+                            if (err2){
+                                res.status(501).json({ message: err2 });
+                            console.log(err2);
+                            }
+                        } );
+                        // io.emit("moneybox_update", )
+                    })
+                } catch (error) {
+                    res.status(501).json({ message: error });
+                    console.log(error);
+                }
+            } else {
+                res.status(406).json({ message: "insufficient balance"});
+            }
+        })
+    } catch (error) {
+        res.status(501).json({ message: error });
+        console.log(error);
+    }
+    
+});
+app.post('/api/depositmoneybox', async (req, res) => {
+    const { username, amount } = req.body;
+    const updateQuery = `UPDATE user_moneybox SET value = value + ? WHERE username = ?`;
+    const updateQuery2 = `UPDATE users SET balance = balance - ? WHERE username = ?`;
+    try{
+        connection.execute(updateQuery, [amount, username], (err, result) => {
+            if (err) {
+                res.status(501).json({ message: err });
+                console.log(err);
+            }
+            res.status(200).json({ message: "correct"});
+            connection.execute(updateQuery2, [amount, username], (err2) => {
+                if (err2){
+                    res.status(501).json({ message: err2 });
+                    console.log(err2);
+                }
+            } )
+        })
+    } catch (error) {
+        res.status(501).json({ message: error });
+        console.log(error);
+    }
+});
+app.post('/api/updatelimit', async (req, res) => {
+    const { username, limit } = req.body;
+    const updateQuery = `UPDATE user_moneybox SET mlimit = ? WHERE username = ?`;
+    try{
+        connection.execute(updateQuery, [limit, username], (err, result) => {
+            if (err) {
+                res.status(501).json({ message: err });
+                console.log(err);
+            }
+            res.status(200).json({ message: "correct"});
         })
     } catch (error) {
         res.status(501).json({ message: error });
@@ -294,15 +422,22 @@ app.post('/api/register', async (req, res) => {
         
         const hashedPassword = await bcrypt.hash(password, 10);
         const IBAN = await generateRandomIban(); 
-        const query = `INSERT INTO users (username, password, name, surname, email, phone, age, afm, currency, IBAN, verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        connection.execute(query, [username, hashedPassword, name, surname, email, phone, age, afm, currency, IBAN, '0'], (err, results) => {
+        const query = `INSERT INTO users (username, password, name, surname, email, phone, age, afm, currency, IBAN, verified, balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        connection.execute(query, [username, hashedPassword, name, surname, email, phone, age, afm, currency, IBAN, '0', '1000'], (err, results) => {
             if (err) {
                 console.log(`error ${err.message}`);
                 return res.status(500).json({ message: err.message });
                 
             }
             
-            res.status(201).json({ message: 'User registered successfully' });
+            const mbregister = `INSERT INTO user_moneybox (username, value, mlimit) VALUES (?, ?, ?)`;
+            connection.execute(mbregister, [username, '0', '100'], (err2) => {
+                if (err2) {
+                    console.log(err2);
+                    res.status(201).json({ message: 'User registered successfully' });
+
+                }
+            })
             console.log(`Succesfully Registered user ${username}`);
         });
         const tokenquery = `INSERT INTO user_pages (username, token) VALUES (?, ?)`;
@@ -312,9 +447,17 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+let userSettings = {};
+
+app.post("/api/user-settings", (req, res) => {
+  userSettings = req.body;
+  console.log("Received settings:", userSettings);
+  res.json({ message: "Settings saved successfully!", data: userSettings });
+});
+
 app.post('/api/login', async (req, res) => {
     const {username, password} = req.body;
-    const JWT_SECRET = process.env.JWT_SECRET || "";
+    const JWT_SECRET = config.JWT_SECRET || "";
     if (!username || !password) {
         return res.status(400).json({ message: "Username and password are required" });
     }
@@ -354,6 +497,10 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+
+
+
 app.post('/api/transactionsall', async (req, res) => {
     const { username, IBAN, views, type } = req.body;
     try {
@@ -393,7 +540,7 @@ app.post('/api/transactionsall', async (req, res) => {
 function generateRandomToken() {
     let count = 0;
     let result = '';
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()?';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@$%&*()?';
     const charslength = chars.length;
     while (count < 32) {
         result += chars.charAt(Math.floor(Math.random() * charslength));
@@ -401,6 +548,23 @@ function generateRandomToken() {
     }
     return result;
 }
+app.post('/api/checkAdmin', async (req, res) => {
+    const { username } = req.body;
+    try {
+        const query = `SELECT admin FROM users WHERE username =?`;
+        connection.execute(query, [username], async (err, results) => {
+            if (err) {
+                return res.status(500).json({ message: err.message });
+            }
+            if (results.length === 0) {
+                return res.status(404).json({ message: err.message });
+            }
+            
+        })
+    } catch (error) {
+        
+    }
+})
 app.post('/api/request-recovery', async (req, res) => {
     const { username } = req.body;
     try {
@@ -411,28 +575,45 @@ app.post('/api/request-recovery', async (req, res) => {
             }
             if (results.length === 0) {
                 return res.status(200).json({message: "Σε περίπτωση που υπάρχει λογαριασμός συνδεμένος με το username θα σταλθεί email με οδηγίες."});
-            }
-    
-            if (results[0].token != 0 ){
-                res.status(200).json({message: "Έχει ήδη σταλθεί σύνδεσμος ανάκτησης λογαριασμού."});
-            } else{
-                res.status(200).json({message: "Σε περίπτωση που υπάρχει λογαριασμός συνδεμένος με το username θα σταλθεί email με οδηγίες."});
+            } else {
                 const token = generateRandomToken();
-                const querytoken = `INSERT INTO user_pages (username, token, expire_at, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)`;
+                const querytoken = `UPDATE user_pages SET token = ?, expire_at = ?, created_at = CURRENT_TIMESTAMP WHERE username = ?`;
                 const date = new Date();
-                const expirationDate = new Date(date.getTime() + 60 * 60 * 1000);
-                console.log("1");
-                connection.execute(querytoken, [username, token, expirationDate.toISOString()], (err, results2) => {
-                    console.log("2");
+                const expirationDate = new Date(date.getTime() + 180 * 60 * 1000);
+                connection.execute(querytoken, [token, expirationDate.toISOString(), username], async (err, results2) => {
                     if (err) {
                         console.log("error" + err);
+                        return res.status(500).json({message: err});
                     }
-                    if (results2.affectedRows > 0) {
-                        console.log("correct.");                      
+                    if (results2.affectedRows > 0) {   
+                        try {
+                            const querymail = `SELECT email FROM users WHERE username = ? `;
+                            connection.execute(querymail, [username], async (err, results) => {
+                                if (err) {
+                                    res.status(500).send({ error: 'Failed to send email' });
+                                }
+                                const mailoptions = {
+                                    from: config.SMTP.USER,
+                                    to: results[0].email,
+                                    subject: 'E-banking password reset!!!',
+                                    text: 'A request has been made for a password change according to this email adrress. Please visit the following url in order to change the password. http://86.105.189.98:3000/resetpassword?token='+ token,
+                                };
+                                const info = await transporter.sendMail(mailoptions);
+                                console.log("Email sent: " + info.response);
+                                // res.status(200).send({ message: 'Email sent successfully!' });
+                            });
+                    
+                        } catch (error) {
+                            console.error('Error sending email:', error);
+                            res.status(500).send({ error: 'Failed to send email' });
+                        }  
+                        return res.status(200).json({message: "Σε περίπτωση που υπάρχει λογαριασμός συνδεμένος με το username θα σταλθεί email με οδηγίες."});
+                                      
                     }
                 })
-            
             }
+    
+            
         });
         
     } catch (error) {
@@ -442,17 +623,26 @@ app.post('/api/request-recovery', async (req, res) => {
 
 app.post('/api/request-passreset', async (req, res) => {
     console.log("1");
-    const { token, password, password2 } = req.body;
+    const { token, password } = req.body;
     try {
         console.log("2");
         const query = `SELECT * FROM user_pages WHERE token = ?`;
-        connection.execute(query, [token], (err, results) => {
+        connection.execute(query, [token], async (err, results) => {
             console.log("3");
             if (err) {
                 console.log(err);
             }
             if (results.length > 0) {
-                console.log("correct");
+                const resetquery = `UPDATE users SET password = ? WHERE username = ?`;
+                const hashedPassword = await bcrypt.hash(password, 10);
+                connection.execute(resetquery, [hashedPassword, results[0].username], (err) => {
+                    if (err) {
+                        console.log(err);
+                    }
+                    return res.status(200).json({ message: 'Αλλαγη κωδικου με επιτυχια.' });
+                })
+            } else {
+                console.log("Ο σύνδεσμος δεν βρεθηκε παρακαλω επικοινωνηστε με καποιον εκπροσωπο.");
             }
         })
     } catch (error) {
@@ -471,10 +661,10 @@ app.post('/api/verification-email', async (req, res) => {
                 res.status(500).send({ error: 'Failed to send email' });
             }
             const mailoptions = {
-                from: process.env.GMAIL_USER,
+                from: config.SMTP.USER,
                 to: results[0].email,
                 subject: 'Account verification',
-                text: 'Your verification code is: ' + verificationcode + 'Please visit this link http://192.168.1.130:3000/EmailVerification to verify email',
+                text: 'Your verification code is: ' + verificationcode + 'Please visit this link http://86.105.189.98:3000/EmailVerification to verify email',
             };
             const info = await transporter.sendMail(mailoptions);
             console.log("Email sent: " + info.response);
@@ -650,6 +840,79 @@ app.post('/api/hometransactions', async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+app.get('/api/users', async (req, res) => {
+    try {
+        const query = "SELECT * FROM users";
+        connection.execute(query, (err, results) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.status(200).json(results);
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+app.put('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, phone, balance } = req.body;
+
+    try {
+        const query = "UPDATE users SET name = ?, phone = ?, balance = ? WHERE id = ?";
+        connection.execute(query, [name, phone, balance, id], (err, results) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ message: "User not found" });
+            }
+            res.status(200).json({ message: "User updated successfully" });
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+app.get('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const query = "SELECT * FROM users WHERE id = ?";
+        connection.execute(query, [id], (err, results) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+
+            if (results.length === 0) {
+                return res.status(404).json({ message: "User not found" });
+            }
+            res.status(200).json(results[0]);
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const query = "DELETE FROM users WHERE id = ?";
+        connection.execute(query, [id], (err, results) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ message: "User not found" });
+            }
+            res.status(200).json({ message: "User deleted successfully" });
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 
 
 server.listen(PORT, () => {

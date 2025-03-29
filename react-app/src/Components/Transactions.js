@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode"; 
 import Header from "./Header";
+const config = require("../config");
+const API_URL = config.IP_BACKEND;
 
 function Transactions() {
   const [userData, setUserData] = useState(null);
@@ -30,7 +32,7 @@ function Transactions() {
       setLoading(true);
       setError(null); 
       try {
-        const response = await fetch("http://192.168.1.130:5000/api/transactionsall", {
+        const response = await fetch(`${API_URL}/api/transactionsall`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: userData.username, IBAN: userData.IBAN, views, type }),

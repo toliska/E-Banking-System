@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-
+const config = require("../config");
+const API_URL = config.IP_BACKEND;
 function Register() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -28,7 +29,7 @@ function Register() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/register', {
+      const response = await fetch(`${API_URL}/api/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -36,7 +37,7 @@ function Register() {
         body: JSON.stringify({ name, surname, username, email, password, phone, age, afm, currency }),
       });
 
-      const responce2 = await fetch("http://192.168.1.130:5000/api/verification-email", {
+      const responce2 = await fetch(`${API_URL}/api/verification-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username }),

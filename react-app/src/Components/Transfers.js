@@ -4,6 +4,8 @@ import { io } from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+const config = require("../config");
+const API_URL = config.IP_BACKEND;
 
 function Transfers() {
   const [userData, setUserData] = useState(null);
@@ -33,7 +35,7 @@ function Transfers() {
   }, []);
 
   useEffect(() => {
-    const socket = io("http://192.168.1.130:5000");
+    const socket = io(`${API_URL}`);
 
     socket.on("new_transaction", (transaction) => {
       if (transaction.IBAN_receiver === userData?.IBAN) {
@@ -65,7 +67,7 @@ function Transfers() {
       if (!userData) return;
 
       try {
-        const response = await fetch("http://192.168.1.130:5000/api/transfers", {
+        const response = await fetch(`${API_URL}/api/transfers`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ IBAN: userData.IBAN }),
@@ -94,7 +96,7 @@ function Transfers() {
     setState((prev) => ({ ...prev, checkingRecipient: true, message: "" }));
 
     try {
-      const response = await fetch("http://192.168.1.130:5000/api/hname", {
+      const response = await fetch(`${API_URL}/api/hname`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ IBAN2: form.IBAN2 }),
@@ -136,7 +138,7 @@ function Transfers() {
     }
 
     try {
-      const response = await fetch("http://192.168.1.130:5000/api/transfer", {
+      const response = await fetch(`${API_URL}/api/transfer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ IBAN: userData.IBAN, IBAN2, Description, amount }),

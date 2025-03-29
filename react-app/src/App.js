@@ -10,14 +10,19 @@ import Transfers from './Components/Transfers';
 import Settings from './Components/Settings';
 import Resetpassword from './Components/Resetpassword';
 import PreventExit from './Components/PreventExit';
+import HomePage from './Views/test';
+import Admin from './Components/Admin';
 import { jwtDecode } from 'jwt-decode';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { App } from '@capacitor/app';
 import {
-  BrowserRouter as Router,
+  // BrowserRouter as Router,
   Routes,
   Route,
 } from "react-router-dom";
-function App() {
+
+function Appl() {
   const [userData, setUserData] = useState(null);
 
   useEffect(() => {
@@ -32,20 +37,46 @@ function App() {
     }
   }, []);
 
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let backButtonListener;
+
+    const setupBackButtonListener = async () => {
+        backButtonListener = await App.addListener('backButton', ({ canGoBack }) => {
+            if (canGoBack) {
+                navigate(-1); 
+            } else {
+                App.exitApp(); 
+            }
+        });
+    };
+
+    setupBackButtonListener();
+
+    return () => {
+        if (backButtonListener && typeof backButtonListener.remove === 'function') {
+            backButtonListener.remove(); 
+        }
+    };
+}, [navigate]);
+
   return (
     
     <div>
-      <Router>
-        <PreventExit />
+      <PreventExit />
     <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/homepage" element={<HomePage />} />
+        
         <Route path='/resetpassword' element={<Resetpassword />} />
         
         <Route element={<PrivateRoute />}>
             <Route path="/home" element={<Home />} />
             <Route path='/settings' element={<Settings />} />
+            <Route path='/admin' element={<Admin/>} />
             
             {/* Conditionally render the Transactions route based on userData */}
             {userData && (
@@ -56,7 +87,6 @@ function App() {
         <Route path="/EmailVerification" element={<EmailVerification />} />
     </Routes>
     <Footer />
-</Router>
      
       
       
@@ -66,4 +96,4 @@ function App() {
   );
 }
 
-export default App;
+export default Appl;
